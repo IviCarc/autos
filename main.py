@@ -15,7 +15,6 @@ df.loc[pd.isnull(df["Kilometraje"]), "Kilometraje"] = "0" # Transforma los valor
 
 for i in range(len(df["Kilometraje"])): # Este bucle itera por todos los valores de la columna de Kilometraje, utilizando regex,
     if df["Kilometraje"][i] == "0": continue # elimina los "." y el string "km" y sus variaciones
-    # df["Kilometraje"][i] = str[0] + str[1]
     df["Kilometraje"][i] = re.sub("\.|KM|km|Km|\?", "", df["Kilometraje"][i])
 
 df["Kilometraje"] = pd.to_numeric(df["Kilometraje"]) # Transformar la columna al tipo int
@@ -23,7 +22,19 @@ df["Kilometraje"] = pd.to_numeric(df["Kilometraje"]) # Transformar la columna al
 # Dar formato al auto
 df.loc[pd.isnull(df["Auto"]), "Auto"] = "Desconocido"
 
-print(df)
+# Dar formato al cliente
+df.loc[pd.isnull(df["Cliente"]), "Cliente"] = "Desconocido"
+
+# Dar formato al trabajo
+df.loc[pd.isnull(df["Trabajo"]), "Trabajo"] = "Desconocido"
+
+# Dar formato a la patente
+df.loc[pd.isnull(df["Patente"]), "Patente"] = "Desconocida"
+
+print(type(df["Fecha"][0]))
+
+
+
 # Conexión a la base de datos
 # conn = sqlite3.connect("autos")
 # cur = conn.cursor()
