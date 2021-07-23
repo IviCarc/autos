@@ -8,10 +8,14 @@ pd.options.mode.chained_assignment = None
 conn = sqlite3.connect("db_autos")
 cur = conn.cursor()
 cur.executescript("""
-    DELETE FROM Cliente;
+    DROP TABLE IF EXISTS Cliente;
     DELETE FROM Auto;
     DELETE FROM Auto_Cliente;
     DELETE FROM Reparacion;
+    CREATE TABLE Cliente (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+        cliente TEXT UNIQUE
+    );
 """)
 conn.commit()
 
@@ -44,5 +48,7 @@ df.loc[pd.isnull(df["Trabajo"]), "Trabajo"] = "Desconocido"
 df.loc[pd.isnull(df["Patente"]), "Patente"] = "Desconocida"
 
 
+for i in range(len(df)):
+    cur.execute("""INSERT OR IGNORE INTO Cliente (cliente) VALUES (?)""", (df["Cliente"][i],))
+    conn.commit()
 cur.close()
-
