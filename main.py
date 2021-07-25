@@ -50,5 +50,6 @@ df.loc[pd.isnull(df["Patente"]), "Patente"] = "Desconocida"
 
 for i in range(len(df)):
     cur.execute("""INSERT OR IGNORE INTO Cliente (cliente) VALUES (?)""", (df["Cliente"][i],))
+    cur.execute("""INSERT OR IGNORE INTO Auto (modelo) VALUES (?)""", (df["Auto"][i],))
     conn.commit()
 cur.close()
