@@ -4,6 +4,7 @@ import sqlite3
 import pandas as pd
 import sys
 import re
+from help_functions import *
 
 conn = sqlite3.connect("/home/ivan/Documents/programacion/autos/db_autos")
 cur = conn.cursor()
@@ -126,10 +127,85 @@ def getByPatent(patente):
 
         print(fila)
 
-    # print(auto)
-    # print(cliente)
-    # print(modelo)
-    # print(fecha, km,trabajo)
+def newRecord(cliente, modelo, trabajo, km, fecha, patente):
+    try:
+        km = int(km)
+    except:
+        print('Kilometraje ingresado no válido')
+        return
+    patente = patente.upper()
+    cliente = cliente.lower()
+    modelo = modelo.lower()
+
+
+    # Si el cliente o el modelo del auto no existen en la base de datos, los agregamos
+    cur.execute("""
+        INSERT OR IGNORE INTO Cliente (cliente) VALUES (?)
+    """, (cliente, ))
+    cur.execute("""
+        INSERT OR IGNORE INTO Auto (modelo) VALUES (?)
+    """, (modelo, ))
+    conn.commit()
+
+    # Seleccionamos el id del cliente y del modelo del auto
+    cur.execute("""
+        SELECT Cliente.id, Auto.id
+        FROM Cliente, Auto
+        WHERE Cliente.cliente = (?) AND Auto.modelo = (?)
+    """, (cliente, modelo,))
+    [cliente_id, auto_id] = cur.fetchone()
+
+    # Insertamos en la tabla "Auto_Cliente" el los ids previos con su patente.
+    # Si los datos son incorrectos, por ejemplo, que la patente se repita con un id distinto 
+    # no se agregará
+
+    # Chequeamos si el auto del cliente existe
+
+    cur.execute("""
+        SELECT id
+        FROM Auto_Cliente
+        WHERE cliente_id = (?) 
+        AND auto_id = (?) 
+        AND patente = (?)
+    """, (cliente_id, auto_id, patente))
+
+    auto_cliente_id = cur.fetchone()
+
+    # Esto sucede si el auto no existe
+    if not auto_cliente_id:
+        # Se crea el auto execpto si los datos son erróneos, ej si se ingresa una patente con un auto al que no le corresponde o ya existe
+        try:
+            cur.execute("""
+            INSERT INTO Auto_Cliente (cliente_id, auto_id, patente)
+            VALUES (?, ?, ?)
+        """, (cliente_id, auto_id, patente))
+        except sqlite3.IntegrityError:
+            print("Revise los valores ingresados como 'patente', 'cliente' y 'modelo'")
+            return
+        conn.commit()
+        print("Nuevo auto del cliente ingresado en la base de datos")
+        cur.execute("""
+            SELECT id
+            FROM Auto_Cliente
+            WHERE cliente_id = (?) 
+            AND auto_id = (?) 
+            AND patente = (?)
+        """, (cliente_id, auto_id, patente))
+
+        auto_cliente_id = cur.fetchone()[0]
+
+    # Insertamos la reparación en la tabla, si la reparación es duplicada, retornamos
+    try:
+        cur.execute("""
+            INSERT  INTO Reparacion (auto_cliente_id, fecha, kilometraje, trabajo)
+            VALUES (?, ?, ?, ?)
+        """, (auto_cliente_id, fecha, km, trabajo))
+        conn.commit()
+    except:
+        print('Este registro ya existe, revise los datos')
+        return
+    print("Operación realizada exitosamente")
+    
 
 
 args = sys.argv
@@ -137,11 +213,34 @@ args = sys.argv
 for i in range(len(args)):
     if args[i] == args[0]:
         continue
-    if args[i] == '--client':
+    if args[i] == '--cliente' or args[i] == '-c':
+        if args[i + 1] == '--help':
+            client_help()
+            break
         getByClient(args[i + 1])
-    if args[i] == '-l':
+    if args[i] == '-l' or args[i] == '--lista':
+        if args[i + 1] == '--help':
+            list_help()
+            break
         listClients()
-    if args[i] == '--search':
+    if args[i] == '--buscar' or args[i] == '-b':
+        if args[i + 1] == '--help':
+            search_help()
+            break
         searchClients(args[i + 1])
-    if args[i] == '--patent':
+    if args[i] == '--patente' or args[i] == '-p':
+        if args[i + 1] == '--help':
+            getByPatent_help()
+            break
         getByPatent(args[i + 1])
+    if args[i] == '--nuevo' or args[i] == '-n':
+        if args[i + 1] == '--help':
+            newRecord_help()
+            break
+        try:
+            newRecord(args[i +1], args[i +2], args[i +3], args[i +4], args[i +5], args[i +6])
+        except:
+            print("Argumentos inválidos. Escriba '--nuevo --help' para ver la ayuda de esta función")
+    if args[i] == '--help':
+        helper()
+conn.close()

@@ -10,9 +10,9 @@ cur = conn.cursor()
 cur.executescript("""
     DROP TABLE IF EXISTS Cliente;
     DROP TABLE IF EXISTS Auto;
+    DROP TABLE IF EXISTS Auto_Cliente;
+    DROP TABLE IF EXISTS Reparacion;
 
-    DELETE FROM Auto_Cliente;
-    DELETE FROM Reparacion;
     CREATE TABLE Cliente (
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
         cliente TEXT UNIQUE
@@ -28,14 +28,15 @@ cur.executescript("""
         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
         cliente_id INTEGER,
         auto_id INTEGER,
-        patente TEXT UNIQUE
+        patente TEXT,
+        UNIQUE (cliente_id, auto_id, patente)
     );
-    DROP TABLE Reparacion;
     CREATE TABLE Reparacion(
         auto_cliente_id INTEGER,
         fecha TEXT,
         kilometraje INTEGER,
-        trabajo TEXT        
+        trabajo TEXT,
+        UNIQUE (auto_cliente_id, fecha, kilometraje, trabajo)
     );
 """)
 conn.commit()
@@ -79,25 +80,48 @@ df.loc[pd.isnull(df["Patente"]), "Patente"] = "Desconocida"
 conn.commit()
 
 for i in range(len(df)):
+    # Si el cliente o el auto no existen los inserta
     cur.execute("""INSERT OR IGNORE INTO Cliente (cliente) VALUES (?)""", (df["Cliente"][i],))
     cur.execute("""INSERT OR IGNORE INTO Auto (modelo) VALUES (?)""", (df["Auto"][i],))
     auto_cliente = df["Auto"][i]
     nombre_cliente = df["Cliente"][i]
-    print(i)
     cur.execute("""SELECT Auto.id, Cliente.id FROM Auto, Cliente WHERE Auto.modelo = (?) and Cliente.cliente = (?)""", (auto_cliente, nombre_cliente))
     fila = cur.fetchone()
+
     cur.execute("INSERT OR IGNORE INTO Auto_Cliente (patente, auto_id, cliente_id) VALUES (?, ?, ?)", (df["Patente"][i], fila[0], fila[1]))
 
 conn.commit()
+
 
 for i in range(len(df)):
     fecha = str(df["Fecha"][i])
     km = int(df["Kilometraje"][i])
     trabajo = df["Trabajo"][i]
     patente = df["Patente"][i]
-    cur.execute("""INSERT INTO Reparacion (fecha, kilometraje, trabajo) VALUES (?,?,?)""", (fecha, km, trabajo))
-    cur.execute("""SELECT Auto_Cliente.id FROM Auto_Cliente WHERE Auto_Cliente.patente = (?)""", (patente,))
+
+    auto_cliente = df["Auto"][i]
+    nombre_cliente = df["Cliente"][i]
+    cur.execute("""SELECT Auto.id, Cliente.id FROM Auto, Cliente 
+    WHERE Auto.modelo = (?) and Cliente.cliente = (?)""", (auto_cliente, nombre_cliente))
+
+    [auto_id, cliente_id] = cur.fetchone()
+
+    print(auto_cliente, nombre_cliente)
+    print(auto_id, cliente_id )
+
+    cur.execute("""SELECT id FROM Auto_Cliente 
+    WHERE patente = (?) AND auto_id = (?) AND cliente_id = (?)""", (patente, auto_id, cliente_id))
+
+    # cur.execute("""SELECT id FROM Auto_Cliente WHERE patente = (?)""", (patente,))
+
     auto_cliente_id = cur.fetchone()[0]
-    cur.execute("""UPDATE Reparacion SET auto_cliente_id = (?) WHERE (trabajo = (?) AND fecha = (?) AND kilometraje = (?))""", (auto_cliente_id, trabajo, fecha, km))
+
+    cur.execute("""INSERT OR IGNORE INTO Reparacion (auto_cliente_id, fecha, kilometraje, trabajo) VALUES (?,?,?,?)""", (auto_cliente_id, fecha, km, trabajo))
+
+    # cur.execute("""INSERT INTO Reparacion (fecha, kilometraje, trabajo) VALUES (?,?,?)""", (fecha, km, trabajo))
+    # cur.execute("""SELECT id FROM Auto_Cliente WHERE patente = (?)""", (patente,))
+    # auto_cliente_id = cur.fetchone()[0]
+    # cur.execute("""UPDATE Reparacion SET auto_cliente_id = (?) WHERE (trabajo = (?) AND fecha = (?) AND kilometraje = (?))""", (auto_cliente_id, trabajo, fecha, km))
+
 conn.commit()
 cur.close()
