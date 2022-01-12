@@ -1,4 +1,4 @@
-import sqlite3, numpy
+import sqlite3
 import re
 import pandas as pd
 pd.options.mode.chained_assignment = None
@@ -7,21 +7,21 @@ pd.options.mode.chained_assignment = None
 
 conn = sqlite3.connect("db_autos")
 cur = conn.cursor()
-# cur.executescript("""
-#     DROP TABLE IF EXISTS Cliente;
-#     DROP TABLE IF EXISTS Auto;
+cur.executescript("""
+    DROP TABLE IF EXISTS Cliente;
+    DROP TABLE IF EXISTS Auto;
 
-#     DELETE FROM Auto_Cliente;
-#     DELETE FROM Reparacion;
-#     CREATE TABLE Cliente (
-#         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-#         cliente TEXT UNIQUE
-#     );
-#     CREATE TABLE Auto (
-#         id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
-#         modelo TEXT NOT NULL UNIQUE
-#     )
-# """)
+    DELETE FROM Auto_Cliente;
+    DELETE FROM Reparacion;
+    CREATE TABLE Cliente (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+        cliente TEXT UNIQUE
+    );
+    CREATE TABLE Auto (
+        id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT UNIQUE,
+        modelo TEXT NOT NULL UNIQUE
+    )
+""")
 cur.executescript("""
     DROP TABLE IF EXISTS Auto_Cliente;
     CREATE TABLE Auto_Cliente (
@@ -41,7 +41,7 @@ cur.executescript("""
 conn.commit()
 
 # Abrir el csv y eliminar una columna bug
-df = pd.read_csv("autos.csv", usecols=["Cliente", "Auto", "Trabajo", "Kilometraje", "Fecha", "Patente"])
+df = pd.read_csv("Autos - Hoja 1.csv", usecols=["Cliente", "Auto", "Trabajo", "Kilometraje", "Fecha", "Patente"])
 
 # Dar formato a la fecha ????
 
@@ -63,9 +63,12 @@ df["Kilometraje"] = pd.to_numeric(df["Kilometraje"]) # Transformar la columna al
 
 # Dar formato al auto
 df.loc[pd.isnull(df["Auto"]), "Auto"] = "Desconocido"
+df["Auto"] = df["Auto"].str.lower()
+
 
 # Dar formato al cliente
 df.loc[pd.isnull(df["Cliente"]), "Cliente"] = "Desconocido"
+df["Cliente"] = df["Cliente"].str.lower()
 
 # Dar formato al trabajo
 df.loc[pd.isnull(df["Trabajo"]), "Trabajo"] = "Desconocido"
@@ -73,12 +76,14 @@ df.loc[pd.isnull(df["Trabajo"]), "Trabajo"] = "Desconocido"
 # Dar formato a la patente
 df.loc[pd.isnull(df["Patente"]), "Patente"] = "Desconocida"
 
+conn.commit()
 
 for i in range(len(df)):
-    # cur.execute("""INSERT OR IGNORE INTO Cliente (cliente) VALUES (?)""", (df["Cliente"][i],))
-    # cur.execute("""INSERT OR IGNORE INTO Auto (modelo) VALUES (?)""", (df["Auto"][i],))
+    cur.execute("""INSERT OR IGNORE INTO Cliente (cliente) VALUES (?)""", (df["Cliente"][i],))
+    cur.execute("""INSERT OR IGNORE INTO Auto (modelo) VALUES (?)""", (df["Auto"][i],))
     auto_cliente = df["Auto"][i]
     nombre_cliente = df["Cliente"][i]
+    print(i)
     cur.execute("""SELECT Auto.id, Cliente.id FROM Auto, Cliente WHERE Auto.modelo = (?) and Cliente.cliente = (?)""", (auto_cliente, nombre_cliente))
     fila = cur.fetchone()
     cur.execute("INSERT OR IGNORE INTO Auto_Cliente (patente, auto_id, cliente_id) VALUES (?, ?, ?)", (df["Patente"][i], fila[0], fila[1]))
