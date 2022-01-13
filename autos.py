@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sqlite3
 import pandas as pd
@@ -82,13 +82,14 @@ def searchClients(regex):
 
 
 def getByPatent(patente):
-    patente = patente.upper()
     cur.execute("""
         SELECT *
         FROM Auto_Cliente
         WHERE patente = (?)
     """, (patente, ))
     auto = cur.fetchall()[0]
+
+    print(auto)
 
     auto_cliente_id = auto[0]
     client_id = auto[1]
@@ -128,8 +129,11 @@ def getByPatent(patente):
         print(fila)
 
 def newRecord(cliente, modelo, trabajo, km, fecha, patente):
+    if km.lower() == 'desconocido':
+        km = 0
     try:
         km = int(km)
+        if km < 0: raise Exception()
     except:
         print('Kilometraje ingresado no válido')
         return
@@ -219,10 +223,12 @@ for i in range(len(args)):
             break
         getByClient(args[i + 1])
     if args[i] == '-l' or args[i] == '--lista':
-        if args[i + 1] == '--help':
-            list_help()
-            break
-        listClients()
+        try:
+            if args[i + 1] == '--help':
+                list_help()
+                break
+        except:
+            listClients()
     if args[i] == '--buscar' or args[i] == '-b':
         if args[i + 1] == '--help':
             search_help()

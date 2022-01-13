@@ -49,33 +49,68 @@ df = pd.read_csv("Autos - Hoja 1.csv", usecols=["Cliente", "Auto", "Trabajo", "K
 # REVISA ESTO PAPA QUE ONDA CON EL VALOR TRUCHO DE LA FECHA MEDIA PILA 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-df.loc[df["Fecha"].str.contains("\?|Km", na=False).values, "Fecha"] = "Desconocida"
-df.loc[pd.isnull(df["Fecha"]), "Fecha"] = "Desconocida"
+df.loc[df["Fecha"].str.contains("\?|Km", na=False).values, "Fecha"] = "desconocida"
+df.loc[pd.isnull(df["Fecha"]), "Fecha"] = "desconocida"
 # df["Fecha"] = pd.to_datetime(df["Fecha"], dayfirst=True)
 
 # Dar formato al kilometraje
 df.loc[pd.isnull(df["Kilometraje"]), "Kilometraje"] = "0" # Transforma los valores nulos o vacíos en el csv, a "0"
 
-for i in range(len(df["Kilometraje"])): # Este bucle itera por todos los valores de la columna de Kilometraje, utilizando regex,
-    if df["Kilometraje"][i] == "0": continue # elimina los "." y el string "km" y sus variaciones
-    df["Kilometraje"][i] = re.sub("\.|KM|km|Km|\?", "", df["Kilometraje"][i])
+# Dar formato a la patente
+df.loc[pd.isnull(df["Patente"]), "Patente"] = "desconocida"
+df["Patente"] = df["Patente"].str.lower()
 
-df["Kilometraje"] = pd.to_numeric(df["Kilometraje"]) # Transformar la columna al tipo int
 
 # Dar formato al auto
-df.loc[pd.isnull(df["Auto"]), "Auto"] = "Desconocido"
+df.loc[pd.isnull(df["Auto"]), "Auto"] = "desconocido"
 df["Auto"] = df["Auto"].str.lower()
 
 
 # Dar formato al cliente
-df.loc[pd.isnull(df["Cliente"]), "Cliente"] = "Desconocido"
+df.loc[pd.isnull(df["Cliente"]), "Cliente"] = "desconocido"
 df["Cliente"] = df["Cliente"].str.lower()
 
 # Dar formato al trabajo
-df.loc[pd.isnull(df["Trabajo"]), "Trabajo"] = "Desconocido"
+df.loc[pd.isnull(df["Trabajo"]), "Trabajo"] = "desconocido"
 
-# Dar formato a la patente
-df.loc[pd.isnull(df["Patente"]), "Patente"] = "Desconocida"
+# Iteramos por el frame, elimina el string "km" y sus variaciones
+# Reemplaza los espacios " " en las patente por "-"
+
+def normalize(s):
+    replacements = (
+        ("á", "a"),
+        ("é", "e"),
+        ("í", "i"),
+        ("ó", "o"),
+        ("ú", "u"),
+        (" ", "-"),
+    )
+    s = s.strip()
+    for a, b in replacements:
+        s = s.replace(a, b)
+    return s
+
+for i in range(len(df)): 
+    if df["Kilometraje"][i] != "0":
+        df["Kilometraje"][i] = re.sub("\.|KM|km|Km|\?", "", df["Kilometraje"][i])
+    if df["Patente"][i] != "desconocida":
+        df["Patente"][i] = df["Patente"][i].replace(" ", "-")
+    if df["Cliente"][i] != "desconocido":
+        df["Cliente"][i] = normalize(df["Cliente"][i])
+    if df["Auto"][i] != "desconocido":
+        df["Auto"][i] = normalize(df["Auto"][i])
+
+
+
+df["Kilometraje"] = pd.to_numeric(df["Kilometraje"]) # Transformar la columna al tipo int
+
+# for i in range(len(df)): 
+#     if df["Kilometraje"][i] == "0": continue # elimina los "." y el string "km" y sus variaciones
+#     df["Kilometraje"][i] = re.sub("\.|KM|km|Km|\?", "", df["Kilometraje"][i])
+#     if df["Patente"][i] == "desconocida" : continue
+#     df["Patente"][i] = df["Patente"][i].replace(" ", "-")
+
+
 
 conn.commit()
 
@@ -106,22 +141,12 @@ for i in range(len(df)):
 
     [auto_id, cliente_id] = cur.fetchone()
 
-    print(auto_cliente, nombre_cliente)
-    print(auto_id, cliente_id )
-
     cur.execute("""SELECT id FROM Auto_Cliente 
     WHERE patente = (?) AND auto_id = (?) AND cliente_id = (?)""", (patente, auto_id, cliente_id))
-
-    # cur.execute("""SELECT id FROM Auto_Cliente WHERE patente = (?)""", (patente,))
 
     auto_cliente_id = cur.fetchone()[0]
 
     cur.execute("""INSERT OR IGNORE INTO Reparacion (auto_cliente_id, fecha, kilometraje, trabajo) VALUES (?,?,?,?)""", (auto_cliente_id, fecha, km, trabajo))
-
-    # cur.execute("""INSERT INTO Reparacion (fecha, kilometraje, trabajo) VALUES (?,?,?)""", (fecha, km, trabajo))
-    # cur.execute("""SELECT id FROM Auto_Cliente WHERE patente = (?)""", (patente,))
-    # auto_cliente_id = cur.fetchone()[0]
-    # cur.execute("""UPDATE Reparacion SET auto_cliente_id = (?) WHERE (trabajo = (?) AND fecha = (?) AND kilometraje = (?))""", (auto_cliente_id, trabajo, fecha, km))
 
 conn.commit()
 cur.close()
