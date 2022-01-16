@@ -1,0 +1,25 @@
+.header {
+    background-color: green;
+}
+
+.header-nav {
+    padding: 10px;
+}
+
+.header-ul {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.header-li {
+    list-style: none;
+    padding: 5px;
+    background-color: #ccc;
+    border-radius: 10px;
+}
+
+.header-link {
+    text-decoration: none;
+    color: black;
+}

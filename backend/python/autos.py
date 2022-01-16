@@ -1,20 +1,39 @@
 #!/usr/bin/env python3
 
 import sqlite3
-import pandas as pd
 import sys
 import re
 from help_functions import *
+import json
 
-conn = sqlite3.connect("/home/ivan/Documents/programacion/autos/db_autos")
+
+# !!!! IMPORTANTE !!!!
+# EN CASO DE HABER UN ERROR, SE ENVIARÁ UN CÓDIGO, SU SIGNIFICADO ESTARÁ INDICADO EN LA FUNCIÓN
+
+
+conn = sqlite3.connect("/home/ivan/Documents/programacion/autos/backend/python/db_autos")
 cur = conn.cursor()
 
 def getByClient(client):
+
+    # App nos indica si estamos llamando al script desde terminal o desde la app
+    # La diferencia radica en el formato del print, cuando llamemos desde la app necesitamos un JSON
+
+    app = False
+    try:
+        app = args[3]
+    except:
+        pass
     cur.execute("""SELECT id FROM Cliente WHERE cliente = (?)""", (client,))
 
-    client_id = cur.fetchone()[0]
-
-    print('ID DEL CLIENTE',client_id)
+    try:
+        client_id = cur.fetchone()[0]
+    except:
+        if not app:
+            print(f"'{client[0].upper() + client[1:]}' no existe")
+        else:
+            print('0') #'0' indica que el cliente no existe
+        return
 
     cur.execute("""
     SELECT id, auto_id ,patente
@@ -23,6 +42,8 @@ def getByClient(client):
     """, (client_id,))
 
     autosCliente = cur.fetchall()
+
+    repArray = []
 
     for auto in autosCliente:
         patente = auto[2]
@@ -50,17 +71,68 @@ def getByClient(client):
             fecha = reparacion[1]
             km = reparacion[2]
             trabajo = reparacion[3]
-            fila = f'{client} | {modelo} | {trabajo} | {km} Km | {fecha} | {patente}'
-            print(fila)
+
+            if not app:
+                # Formato para terminal
+                fila = f'{client} | {modelo} | {trabajo} | {km} Km | {fecha} | {patente}' 
+                print(fila)
+            else:
+                # JSON usado por la app
+                repArray.append({"cliente":client,"modelo":modelo, "trabajo":trabajo,
+                "km": km, "fecha": fecha, "patente":patente})
+    if app:
+        jsonData = json.dumps(repArray)
+        print(jsonData)
+
 
 
 def listClients():
+    app = False
+    try:
+        app = args[2]
+    except:
+        pass
+    
     cur.execute("""
         SELECT *
         FROM Cliente
     """)
     clients = cur.fetchall()
-    for client in clients: print(f'{client[0]}, {client[1]}')
+
+    clientsArr = []
+
+    for client in clients: 
+        if not app:
+            print(f'{client[0]}, {client[1]}')
+        else:
+            clientsArr.append({"Cliente" : client[1]})
+    if app: print(json.dumps(clientsArr))
+
+def listPatents():
+    app = False
+    try:
+        app = args[2]
+    except:
+        pass
+    
+    cur.execute("""
+        SELECT patente
+        FROM Auto_Cliente
+    """)
+    
+    patentes = cur.fetchall()
+
+    patentsArr = []
+
+    for patente in patentes: 
+        if not app:
+            print(f'{patente[0]}')
+        else:
+            patentsArr.append({"patente" : patente[0]})
+    if app: print(json.dumps(patentsArr))
+
+
+
 
 def regexp(expr, item):
     reg = re.compile(expr)
@@ -69,28 +141,63 @@ def regexp(expr, item):
 conn.create_function("REGEXP", 2, regexp)
 
 def searchClients(regex):
-    
+    # App nos indica si estamos llamando al script desde terminal o desde la app
+    # La diferencia radica en el formato del print, cuando llamemos desde la app necesitamos un JSON
+
+    app = False
+    try:
+        app = args[3]
+    except:
+        pass
+
+
     cur.execute("""
         SELECT *
         FROM Cliente
         WHERE cliente REGEXP (?)
     """, (regex, ))
+
     clients = cur.fetchall()
-    if not clients: print('No matches')
+    clientsArr = []
+    
+    if not clieFnts: 
+        if not app:
+            print('No matches')
+        else:
+            print('0')
+        return
     else:
-        for client in clients: print(f'{client[0]}, {client[1]}')
+        for client in clients: 
+            if not app:
+                print(f'{client[0]}, {client[1]}')
+            else: clientsArr.append({"id": client[0], "cliente": client[1]})
+    if app:
+        print(json.dumps(clientsArr))
 
 
 def getByPatent(patente):
+    # App nos indica si estamos llamando al script desde terminal o desde la app
+    # La diferencia radica en el formato del print, cuando llamemos desde la app necesitamos un JSON
+
+    app = False
+    try:
+        app = args[3]
+    except:
+        pass
+
     cur.execute("""
         SELECT *
         FROM Auto_Cliente
         WHERE patente = (?)
     """, (patente, ))
-    auto = cur.fetchall()[0]
-
-    print(auto)
-
+    try:
+        auto = cur.fetchall()[0]
+    except:
+        if not app:
+            print(f"'{patente}' no existe")
+        else:
+            print('0')
+        return
     auto_cliente_id = auto[0]
     client_id = auto[1]
     auto_id = auto[2]
@@ -119,16 +226,28 @@ def getByPatent(patente):
 
     reparaciones = cur.fetchall()
 
+    repArray = []
+
     for reparacion in reparaciones:
         fecha = reparacion[0]
         km = reparacion[1]
         trabajo = reparacion[2]
 
-        fila = f'{cliente} | {modelo} | {trabajo} | {km}Km | {fecha} | {patente}'
-
-        print(fila)
+        if not app:
+            fila = f'{cliente} | {modelo} | {trabajo} | {km}Km | {fecha} | {patente}'
+            print(fila)
+        else:
+            repArray.append({"cliente":cliente,"modelo":modelo, "trabajo":trabajo,
+                "km": km, "fecha": fecha, "patente":patente})
+    if app: print(json.dumps(repArray))
 
 def newRecord(cliente, modelo, trabajo, km, fecha, patente):
+    app = False
+    try:
+        app = args[3]
+    except:
+        pass
+
     if km.lower() == 'desconocido':
         km = 0
     try:
@@ -184,10 +303,17 @@ def newRecord(cliente, modelo, trabajo, km, fecha, patente):
             VALUES (?, ?, ?)
         """, (cliente_id, auto_id, patente))
         except sqlite3.IntegrityError:
-            print("Revise los valores ingresados como 'patente', 'cliente' y 'modelo'")
+
+            if not app:
+                print("Revise los valores ingresados como 'patente', 'cliente' y 'modelo'")
+            else:
+                print("1") # 1 CODIGO ERROR
             return
         conn.commit()
-        print("Nuevo auto del cliente ingresado en la base de datos")
+
+        if not app:
+            print("Nuevo auto del cliente ingresado en la base de datos")
+
         cur.execute("""
             SELECT id
             FROM Auto_Cliente
@@ -208,9 +334,10 @@ def newRecord(cliente, modelo, trabajo, km, fecha, patente):
     except:
         print('Este registro ya existe, revise los datos')
         return
-    print("Operación realizada exitosamente")
-    
-
+    if not app:
+        print("Operación realizada exitosamente")
+    else:
+        print("0") # EXITO
 
 args = sys.argv
 
@@ -222,13 +349,24 @@ for i in range(len(args)):
             client_help()
             break
         getByClient(args[i + 1])
-    if args[i] == '-l' or args[i] == '--lista':
+    if args[i] == '-lc' or args[i] == '--lista-clientes':
         try:
-            if args[i + 1] == '--help':
-                list_help()
-                break
+            args[i +1]
         except:
             listClients()
+            break
+        if args[i + 1] == '--help': list_help()
+        elif args[i + 1] == 'true': listClients()
+
+    if args[i] == '-lp' or args[i] == '--lista-patentes':
+        try:
+            args[i +1]
+        except:
+            listPatents()
+            break
+        if args[i + 1] == '--help': list_help()
+        elif args[i + 1] == 'true': listPatents()
+
     if args[i] == '--buscar' or args[i] == '-b':
         if args[i + 1] == '--help':
             search_help()
